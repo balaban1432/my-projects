@@ -9,7 +9,7 @@ def head():
 @app.route('/sum')
 def number():
     var1, var2 = 1521055, 3896044
-    return render_template('body.html', value1 = var1, value2 = var2, sum = var1+var2)
+    return render_template('body.html', value1 = var1, value2 = var2, sum = var1 + var2)
 
 
 if __name__ == '__main__':

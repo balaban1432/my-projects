@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def head():
-    return render_template('index.html', number1 = 117044, number2 = 229055)
+    return render_template('index.html', number1 = 11754044, number2 = 22904555)
 
 @app.route('/sum')
 def number():

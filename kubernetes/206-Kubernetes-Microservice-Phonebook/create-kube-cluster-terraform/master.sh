@@ -29,6 +29,6 @@ mkdir -p /home/ubuntu/.kube
 cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
 chown ubuntu:ubuntu /home/ubuntu/.kube/config
 su - ubuntu -c 'kubectl apply -f https://github.com/coreos/flannel/raw/master/Documentation/kube-flannel.yml'
-TOKEN="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"
+TOKEN=""
 cd /home/ubuntu && git clone https://$TOKEN@github.com/balaban1432/phonebook-k8.git
 cd /home/ubuntu && kubectl apply -f /home/ubuntu/phonebook-k8

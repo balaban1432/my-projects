@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-resultserver-deployment
+  namespace: default
+  labels:
+    app: result-server
+spec:
+  selector:
+    matchLabels:
+      app: result-server
+      tier: frontend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: result-server
+        tier: frontend
+    spec:
+      containers:
+      - name: resultserver
+        image: balaban/result-server
+        envFrom:
+          - secretRef:
+              name: appsecret
+          - configMapRef:
+              name: server-config
+        ports:
+        - containerPort: 80

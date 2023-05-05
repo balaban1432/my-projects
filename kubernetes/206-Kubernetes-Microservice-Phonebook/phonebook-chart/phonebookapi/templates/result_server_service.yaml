@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: resultserver-service
+  namespace: default
+spec:
+  selector:
+    app: result-server
+    tier: frontend
+  type: NodePort
+  ports:
+  - name: resultserver
+    protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 30002

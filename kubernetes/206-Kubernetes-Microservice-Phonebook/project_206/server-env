@@ -1,0 +1,11 @@
+MYSQL_DATABASE_HOST=mysql-service
+MYSQL_PASSWORD=RamazanBALABAN_1="UmFtYXphbkJBTEFCQU5fMQ=="
+MYSQL_DATABASE=phonebook="cGhvbmVib29r"
+MYSQL_USER=admin="YWRtaW4="
+
+MYSQL_ROOT_PASSWORD=R123456b="UjEyMzQ1NmI="
+
+echo -n 'RamazanBALABAN_1' | base64
+echo -n 'R123456b' | base64
+
+/var/lib/mysql

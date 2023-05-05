@@ -1,0 +1,30 @@
+Thank you for installing {{ .Chart.Name }}.
+CHART NAME: {{ .Chart.Name }}
+CHART VERSION: {{ .Chart.Version }}
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+Access the pod you want to debug by executing
+
+  kubectl exec --namespace {{ .Release.Namespace }} -ti <NAME OF THE POD> -- bash
+
+To access your add-update-delete api from outside the cluster follow the steps below:
+
+http://<host-ip>:30001
+
+if you use minikube follow the steps below:
+
+minikube service webserver-service
+
+To access your search api from outside the cluster follow the steps below:
+
+http://<host-ip>:30002
+
+if you use minikube follow the steps below:
+
+minikube service resultserver-service

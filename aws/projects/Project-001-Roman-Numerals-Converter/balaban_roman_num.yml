@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  CloudFormation Template for Roman Numerals Converter Application. 
+  This template creates Python Flask Web Application on 
+  Amazon Linux 2 (ami-0b5eea76982371e91) EC2 Instance with 
+  custom security group allowing http connections on port 80 and SSH connection on port 22. 
+  Roman Numerals Converter Application is downloaded from Github repository, 
+  then installed on Flask.
+Parameters:
+  
+  Subnets:
+    Description: select your subnet
+    Type: AWS::EC2::Subnet::Id
+
+  VPC:
+    Description: select your VPC
+    Type: AWS::EC2::VPC::Id
+
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.large
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.
+  
+  MyKey:
+    Description: Select your key-pem
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  
+  WebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b5eea76982371e91
+      InstanceType: !Ref InstanceTypeParameter
+      KeyName: !Ref MyKey
+      SecurityGroupIds:
+        - !Ref MySecGrp
+      SubnetId: !Ref Subnets
+      Tags:
+        - Key: Name
+          Value: !Sub Web server of ${AWS::StackName} stack
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+        yum install python3 -y
+        pip3 install flask
+        yum install git -y
+        cd /home/ec2-user
+        FOLDER=https://raw.githubusercontent.com/balaban1432/my-projects/main/aws/projects/Project-001-Roman-Numerals-Converter/
+        wget ${FOLDER}app.py
+        mkdir templates && cd templates
+        wget ${FOLDER}templates/index.html
+        wget ${FOLDER}templates/result.html
+        cd ..
+        python3 app.py        
+
+  MySecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ssh and http. # Required
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0        
+      Tags:
+        - Key: Name
+          Value: SSH-HTTP-sec-grp
+      VpcId: !Ref VPC
+
+Outputs:
+  WebSiteURL:
+    Description: Roman Numerals Converter Application URL
+    Value: !Join
+      - ''
+      - - 'http://'
+        - !GetAtt WebServer.PublicDnsName

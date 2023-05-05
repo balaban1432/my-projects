@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webserver-deployment
+  namespace: default
+  labels:
+    app: web-server
+spec:
+  selector:
+    matchLabels:
+      app: web-server
+      tier: backend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: web-server
+        tier: backend
+    spec:
+      containers:
+      - name: webserver
+        image: balaban/web-server
+        env:
+        - name: MYSQL_DATABASE_HOST
+          value: mysql-service
+        - name: MYSQL_PASSWORD
+          value: RamazanBALABAN_1
+        - name: MYSQL_DATABASE
+          value: phonebook
+        - name: MYSQL_USER
+          value: admin
+        ports:
+        - containerPort: 80

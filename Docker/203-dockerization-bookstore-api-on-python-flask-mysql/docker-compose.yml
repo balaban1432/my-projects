@@ -1,0 +1,29 @@
+version: '3.7'
+
+services:
+
+  database:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=R123456b
+      - MYSQL_DATABASE=bookstore_db
+      - MYSQL_USER=clarusway
+      - MYSQL_PASSWORD=Clarusway_1
+    networks:
+      - clarusnet
+    restart: always
+
+  appserver:
+     build: .
+     ports:
+       - "80:80"
+     networks:
+       - clarusnet
+     restart: always
+     depends_on:
+       - database       
+
+
+networks:
+  clarusnet:
+    driver: bridge

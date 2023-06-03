@@ -116,18 +116,18 @@
     container_name: balaban_nodejs
     image_name: xxxxxxxxxxxx.dkr.ecr.us-east-1.amazonaws.com/cw-todo-app:nodejs
   tasks:
-    - name: remove postgre container
+    - name: remove Nodejs container
       community.docker.docker_container:
         name: "{{ container_name }}"
         state: absent
         force_kill: true
 
-    - name: remove postgre image
+    - name: remove Nodejs image
       community.docker.docker_image:
         name: "{{ image_name }}"
         state: absent
 
-    - name: Launch postgresql docker container
+    - name: Launch Nodejs docker container
       community.docker.docker_container:
         name: "{{ container_name }}"
         image: "{{ image_name }}"
@@ -142,13 +142,13 @@
     container_name: balaban_react
     image_name: xxxxxxxxxxx.dkr.ecr.us-east-1.amazonaws.com/cw-todo-app:react
   tasks:
-    - name: remove postgre container
+    - name: remove React container
       community.docker.docker_container:
         name: "{{ container_name }}"
         state: absent
         force_kill: true
 
-    - name: remove postgre image
+    - name: remove React image
       community.docker.docker_image:
         name: "{{ image_name }}"
         state: absent

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: visits-service
+  labels:
+    app: visits-service
+spec:
+  selector:
+    matchLabels:
+      app: visits-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: visits-service
+    spec:
+      initContainers:
+      - name: init-discovery-server
+        image: busybox
+        command: ['sh', '-c', 'until nc -z discovery-server:8761; do echo waiting for discovery-server; sleep 2; done;']
+      containers:
+      - name: visits-service
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:visits-service-b7'
+        ports:
+        - containerPort: 8082
+      imagePullSecrets:
+      - name: regcred

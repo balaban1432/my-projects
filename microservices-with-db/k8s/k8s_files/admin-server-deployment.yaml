@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-server
+  labels:
+    app: admin-server
+spec:
+  selector:
+    matchLabels:
+      app: admin-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: admin-server
+    spec:
+      initContainers:
+      - name: init-discovery-server
+        image: busybox
+        command: ['sh', '-c', 'until nc -z discovery-server:8761; do echo waiting for discovery-server; sleep 2; done;']
+      containers:
+      - name: admin-server
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:admin-server-b7'
+        ports:
+        - containerPort: 9090
+      imagePullSecrets:
+      - name: regcred

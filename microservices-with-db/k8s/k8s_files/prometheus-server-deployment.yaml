@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-server
+  labels:
+    app: prometheus-server
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus-server
+    spec:
+      containers:
+      - name: prometheus-server
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:prometheus-server-b7'
+        ports:
+        - containerPort: 9090
+      imagePullSecrets:
+      - name: regcred

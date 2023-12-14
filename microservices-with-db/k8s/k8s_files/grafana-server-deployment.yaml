@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-server
+  labels:
+    app: grafana-server
+spec:
+  selector:
+    matchLabels:
+      app: grafana-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grafana-server
+    spec:
+      containers:
+      - name: grafana-server
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:grafana-server-b7'
+        ports:
+        - containerPort: 3000
+      imagePullSecrets:
+      - name: regcred

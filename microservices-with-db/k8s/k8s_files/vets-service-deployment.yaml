@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vets-service
+  labels:
+    app: vets-service
+spec:
+  selector:
+    matchLabels:
+      app: vets-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: vets-service
+    spec:
+      initContainers:
+      - name: init-discovery-server
+        image: busybox
+        command: ['sh', '-c', 'until nc -z discovery-server:8761; do echo waiting for discovery-server; sleep 2; done;']
+      containers:
+      - name: vets-service
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:vets-service-b7'
+        ports:
+        - containerPort: 8083
+      imagePullSecrets:
+      - name: regcred

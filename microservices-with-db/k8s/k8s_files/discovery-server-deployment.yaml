@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  labels:
+    app: discovery-server
+spec:
+  selector:
+    matchLabels:
+      app: discovery-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+    spec:
+      initContainers:
+      - name: init-config-server
+        image: busybox
+        command: ['sh', '-c', 'until nc -z config-server:8888; do echo waiting for discovery-server; sleep 2; done;']
+      containers:
+      - name: discovery-server
+        image: '828895145536.dkr.ecr.us-east-1.amazonaws.com/microservices-project:discovery-server-b7'
+        ports:
+        - containerPort: 8761
+      imagePullSecrets:
+      - name: regcred

@@ -8,6 +8,10 @@ Description: |
 
 Parameters:
 
+  ImageId: 
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
   Subnets:
     Description: select your subnet
     Type: AWS::EC2::Subnet::Id
@@ -34,7 +38,7 @@ Resources:
   WebServer:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-0b5eea76982371e91
+      ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
       KeyName: !Ref MyKey
       SecurityGroupIds:
@@ -61,7 +65,6 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Allow ssh and http. # Required
-      GroupName: ssh-http-sec-grp
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22 
@@ -72,6 +75,9 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0 
       VpcId: !Ref VPC
+      Tags: 
+        - Key: Name
+          Value: !Sub "Webserver security group of ${AWS::StackName} Stack"
 
 Outputs:
   

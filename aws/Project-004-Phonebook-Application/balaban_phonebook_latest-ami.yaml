@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  The Phonebook Application aims to create a phonebook application in Python and 
+  deployed as a web application with Flask on AWS Application Load Balancer with
+  Auto Scaling Group of Elastic Compute Cloud (EC2) Instances and 
+  Relational Database Service (RDS) using AWS Cloudformation Service.
+  
+Parameters:
+  
+  myVPC:
+    Description: select your VPC 
+    Type: AWS::EC2::VPC::Id
+
+  ImageId: 
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+  InstanceTypeParameter:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.large
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.  
+
+  MyKey:
+    Description: Select your key-pem
+    Type: AWS::EC2::KeyPair::KeyName
+
+  mySubnets:
+    Description: Choose all subnets
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  myDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 0
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: cfn-DB
+      DBName: clarusway_phonebook
+      DBSecurityGroups: 
+        - !Ref DBSecGrp
+      Engine: mysql
+      EngineVersion: 8.0.35
+      MasterUserPassword: awsdevops13
+      MasterUsername: admin
+      MultiAZ: false
+      Port: 3306
+      PubliclyAccessible: true
+
+  myASGPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref myASG # Required
+      PolicyType:  TargetTrackingScaling 
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification: 
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 60.0
+
+  myASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: cfn-ASG
+      DesiredCapacity: 2
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref WebServerLT
+        Version: !GetAtt WebServerLT.DefaultVersionNumber
+      MaxSize: 3 # Required
+      MinSize: 1 # Required
+      TargetGroupARNs: 
+        - !Ref myTargetGrp
+      VPCZoneIdentifier: !Ref mySubnets
+
+  myListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: # Required
+        - Type: forward
+          TargetGroupArn: !Ref myTargetGrp
+      LoadBalancerArn: !Ref myALB
+      Port: 80
+      Protocol: HTTP
+
+  myALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: cfn-ALB
+      SecurityGroups: 
+        - !Ref ALBSecGrp
+      Subnets: !Ref mySubnets
+      Type: application
+
+  myTargetGrp:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      Name: cfn-target-grp
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref myVPC
+
+  WebServerLT:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceTypeParameter
+        KeyName: !Ref MyKey
+        SecurityGroupIds:
+          - !GetAtt WebServerSecGrp.GroupId
+        TagSpecifications:
+          - ResourceType: "instance"
+            Tags:
+            - Key: Name
+              Value: !Sub Web server of ${AWS::StackName} stack
+        UserData:
+          Fn::Base64:
+            !Sub 
+              - |
+                #! /bin/bash
+                dnf update -y
+                dnf install python3 -y
+                dnf install python-pip -y
+                pip3 install Flask==2.3.3
+                pip3 install flask-mysql
+                echo "${MyDBURI}" > /home/ec2-user/dbserver.endpoint
+                TOKEN="xxxx"
+                FOLDER="https://$TOKEN@raw.githubusercontent.com/balaban1432/private-my-projects/main/Project-004-Phonebook-Application"
+                curl -s --create-dirs -o "/home/ec2-user/templates/index.html" -L "$FOLDER"/templates/index.html
+                curl -s --create-dirs -o "/home/ec2-user/templates/add-update.html" -L "$FOLDER"/templates/add-update.html
+                curl -s --create-dirs -o "/home/ec2-user/templates/delete.html" -L "$FOLDER"/templates/delete.html
+                curl -s --create-dirs -o "/home/ec2-user/phonebook-app.py" -L "$FOLDER"/phonebook-app.py
+                python3 /home/ec2-user/phonebook-app.py
+              - MyDBURI: !GetAtt myDatabase.Endpoint.Address
+      LaunchTemplateName: phonebook-app-cfn
+
+  DBSecGrp:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      DBSecurityGroupIngress: # Required
+        - EC2SecurityGroupId: !GetAtt WebServerSecGrp.GroupId
+      EC2VpcId: !Ref myVPC
+      GroupDescription: "Database access" # Required
+  
+  WebServerSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http and ssh 
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt ALBSecGrp.GroupId
+
+  ALBSecGrp:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http for ALB 
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+
+Outputs:
+
+  WebsiteURL:
+    Value: !Sub
+      - http://${ALBAddress}
+      - ALBAddress: !GetAtt myALB.DNSName
+    Description: Phonebook Application Load Balancer URL

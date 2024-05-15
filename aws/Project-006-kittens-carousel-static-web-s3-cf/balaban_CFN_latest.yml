@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Kittens Carousel is a static website application deployed on AWS Simple Storage Service (S3), 
+  served through Cloudfront and Route 53 using AWS Cloudformation Service.
+  
+Parameters:
+  
+  HostedZoneName:
+    Description: The DNS name of an existing Amazon Route 53 hosted zone e.g. clarusway.us
+    Type: AWS::Route53::HostedZone::Id
+
+  DomainName:
+    Description: The full domain name e.g. kittens.clarusway.us for the web application 
+    Type: String
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+
+Resources:
+  
+  RecordName:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneName
+      RecordSets: 
+        - AliasTarget: 
+            DNSName: !GetAtt CloudFrontDist.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+          Name: !Ref DomainName
+          Type: A
+
+  CloudFrontDist:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases: 
+          - !Ref DomainName
+        Comment: Cloudfront Distribution pointing to Kittens S3 bucket
+        DefaultCacheBehavior: 
+          AllowedMethods: 
+            - GET
+            - HEAD
+          Compress: true
+          ForwardedValues: 
+            QueryString: true 
+            Cookies:
+              Forward: none
+          TargetOriginId: KittensOrigin
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        Origins: 
+        - CustomOriginConfig:                      
+            OriginProtocolPolicy: http-only
+          DomainName: !Select [2, !Split ["/", !GetAtt S3Bucket.WebsiteURL]]
+          Id: KittensOrigin
+        PriceClass: PriceClass_All
+        ViewerCertificate: 
+          AcmCertificateArn: arn:aws:acm:us-east-1:730335535548:certificate/da3f74ed-398b-4471-b46f-50514770d63a
+          SslSupportMethod: sni-only        
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument: 
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3Bucket
+                - /*
+            Principal: '*'
+            Sid: PublicReadGetObject
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DomainName
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter 
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+Outputs:
+
+  BucketURL:
+    Description: S3 Bucket URL
+    Value: !GetAtt S3Bucket.WebsiteURL
+
+  CloudfrontEndpoint:
+    Description: Endpoint for Kittens Cloudfront
+    Value: !GetAtt CloudFrontDist.DomainName
+
+  DomainName:
+    Description: Full Domain Name of my Application
+    Value: !Ref DomainName

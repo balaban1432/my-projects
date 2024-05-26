@@ -1,4 +1,4 @@
-- ### Step 1: Create dedicated VPC and whole components
+### Step 1: Create dedicated VPC and whole components
 - 1. create a vpc named "aws-capstone-VPC" with `90.90.0.0/16` CIDR
     - no ipv6 CIDR block
     - tenancy: default
@@ -115,7 +115,7 @@ VPC              : aws-capstone-VPC
 - policy: Full access
 - create endpoint
 ```
-- ### Step 2: Create Security Groups (ALB ---> EC2 ---> RDS)
+### Step 2: Create Security Groups (ALB ---> EC2 ---> RDS)
 
 1. 
 - Launch Template only allows HTTP (80) and HTTPS (443) ports coming from ALB Security Group and SSH (22) connections from anywhere.
@@ -123,11 +123,12 @@ VPC              : aws-capstone-VPC
 
 Create Sec.Groups: # VPC: aws-capstone-VPC
    aws-capstone-ALB-sec-grp: In bound : "HTTP 80, HTTPS 443 > anywhere(0:/00000)"
+   aws-capstone-EC2-sec-grp: In bound : "HTTP, HTTPS (from AlB sec. grp.), SSH 22  > anywhere (0:/00000)"
    aws-capstone-RDS-sec-grp: In bound :"Mysql 3306 > from aws-capstone-EC2-sec-grp
    aws-capstone-NAT-sec-grp: In bound : "HTTP, HTTPS, SSH 22  > anywhere (0:/00000)" # No need for NAT-SG if you use NAT Gateway.
-   aws-capstone-EC2-sec-grp: In bound : "HTTP, HTTPS (from AlB sec. grp.), SSH 22  > anywhere (0:/00000)"
 
-- ### Step 3: Create RDS  
+
+### Step 3: Create RDS  
 1. create subnet groups
 - click subnet groups from the left-hand menu
     - name: aws-capstone-RDS-subnetgroup
@@ -136,7 +137,30 @@ Create Sec.Groups: # VPC: aws-capstone-VPC
                         - aws-capstone-az1b-private-subnet
 - create
 
-2.  Go to the Amazon RDS Service and select Database section from the left-hand menu, click databases and then click Creating Database.
+2.  
+- Users credentials and blog contents are going to be kept on RDS database. To connect ECs to RDS, following variables must be assigned on "/src/cblog/settings.py" file after you create RDS;
+    a. Database name - "NAME" variable 
+    b. Database endpoint - "HOST" variables
+    c. Port - "PORT"
+    d. PASSWORD variable must be written on "/src/.env" file not to be exposed with settings file
+
+- !!!!! Database username and password will be retrieved from SSM Parameter You need to modify the "src/cblog/settings.py" according to SSM parameter. 
+
+  - Create SSM parameters in configuration below: 
+
+     - Create a parameter for `database master password`  :
+      `Name`         : /balaban/capstone/password              
+      `Type`         : SecureString   (So AWS encrypts sensitive data using KMS) -- Balaban1234
+
+      - Create parameter for `database username`  :
+      `Name`         : /balaban/capstone/username             
+      `Type`         : SecureString  (So AWS encrypts sensitive data using KMS)  -- admin
+
+      - Create parameter for `Github TOKEN`  : (use your own project Github TOKEN as value)
+      `Name`         : /balaban/capstone/token             
+      `Type`         : SecureString   (So AWS encrypts sensitive data using KMS)
+
+- Go to the Amazon RDS Service and select Database section from the left-hand menu, click databases and then click Creating Database.
 
 - Choose a database creation method.
 
@@ -153,7 +177,7 @@ MySQL
 - Version
 
 ```text
-8.0.20
+8.0.33
 ```
 
 - Template
@@ -167,13 +191,13 @@ Free tier
 ```text
 DB instance identifier: aws-capstone-rds
 Master username: admin
-Master password: "xxxxxxx"  # scr/cblog/.env
+Master password: "Balaban1234"
 ```
 
 - DB instance class
 
 ```text
-Burstable classes (includes t classes) : db.t2.micro
+Burstable classes (includes t classes) : db.t3.micro
 ```
 
 - Storage
@@ -207,7 +231,7 @@ DB Authentication: Password authentication
 - Additional configuration
 
 ```text
-Initial DB name                   : xxxxxxx
+Initial DB name                   : database1
 DB parameter group & option group : default
 Automatic backups                 : enable
 Backup retention period           : 7 days (Explain how)
@@ -224,20 +248,27 @@ Deletion protection: disable
 ```
 - Click `Create Database` button
 
-- ### Step 4: Create two S3 Buckets and set one of these as static website.
+### Step 4: Create two S3 Buckets and set one of these as static website.
 - Open S3 Service from AWS Management Console.
 - Create 2 bucket with following properties, 
 - First S3 Bucket
 
-Bucket name                 : balabanblog
-Region                      : N.Virginia
-Object Ownership            : ACLs disabled
-Block all public access     : Checked (KEEP BlOCKED)
-Versioning                  : Disabled
+- Click Create Bucket
+```text
+Bucket Name : balabanblog
+Region      : N.Virginia
+Object Ownership
+    - ACLs enabled
+        - Bucket owner preferred
+Block Public Access settings for this bucket
+Block all public access : Unchecked
+Other Settings are keep them as are
+create bucket
+```
 
 - Second S3 Bucket
 
-Bucket name                 : xxxxxxxxxxx  # we created it in advance
+Bucket name                 : www.deryabalaban.online  # we created it in advance
 Region                      : N.Virginia
 Object Ownership            : ACLs disabled
 Block all public access     : Checked (KEEP BlOCKED)
@@ -263,35 +294,42 @@ Versioning                  : Disabled
 ```
   - Properties>>> Set Static Web Site >>> Enable >>> Index document : index.html 
 
-- ### Step 5: Download or clone project definition from `Clarusway` repo on Github 
-- ### Step 6: Prepare your Github repository 
-do it after step8
-- ### Step 7: Prepare a userdata to be utilized in Launch Template
+- Movie and picture files are kept on S3 as object. You should create an S3 bucket and write name of it on "/src/cblog/settings.py" file as AWS_STORAGE_BUCKET_NAME variable. In addition, you must assign region of S3 as AWS_S3_REGION_NAME variable. 
+
+### Step 5: Download or clone project definition from `Clarusway` repo on Github 
+
+### Step 6: Prepare your Github repository 
+Create private project repository on your Github and clone it on your local. Copy all files and folders which are downloaded from clarusway repo under this folder. Commit and push them on your private Git hup Repo.
+
+### Step 7: Prepare a userdata to be utilized in Launch Template
 ```bash
 
 #!/bin/bash
 apt-get update -y
 apt-get install git -y
+apt install unzip -y
 apt-get install python3 -y
 cd /home/ubuntu/
-TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+TOKEN=$(aws --region=us-east-1 ssm get-parameter --name /balaban/capstone/token --with-decryption --query 'Parameter.Value' --output text)
 git clone https://$TOKEN@github.com/balaban1432/private-my-projects
 cd /home/ubuntu/private-my-projects/Capstone-Project
 apt install python3-pip -y
-apt-get install python3.7-dev default-libmysqlclient-dev -y
+apt-get install python3.7-dev libmysqlclient-dev -y
 pip3 install -r requirements.txt
 cd /home/ubuntu/private-my-projects/Capstone-Project/src
 python3 manage.py collectstatic --noinput
 python3 manage.py makemigrations
 python3 manage.py migrate
 python3 manage.py runserver 0.0.0.0:80
-
 ```
-- ### Step 8: Write RDS, S3 in settings file given by Clarusway Fullstack Developer team 
+### Step 8: Write RDS, S3 in settings file given by Clarusway Fullstack Developer team 
 
-settings file içindeki RDS ve S3 bilgileri kaynaklar oluşturulduktan sonra doldurulacak
+- we have done above
 
-- ### Step 9: Create NAT Instance in Public Subnet
+### Step 9: Create NAT Instance in Public Subnet
 - You might create new instance as Bastion host on Public subnet or you can use NAT instance as Bastion host.
 
 1.  Create NAT Instance
@@ -309,7 +347,9 @@ Tag             :
     Key         : Name
     Value       : aws-capstone-NAT-bastion
 ```
+- # nat ami ler kaldırılıyor ama cli ile instance oluştururken o ami leri hala bulabiliyor.
 
+aws ec2 run-instances --image-id ami-0aa210fd2121a98b7 --instance-type t2.micro --key-name derya --security-group-ids sg-02c8c221965eb0fb4 --subnet-id subnet-0262008a5b1095dac
 - Select created Nat Instance on EC2 list
 
 - Tab Actions Menu ----> Networking ----> Change Source/Destination Check ---> stop
@@ -328,7 +368,7 @@ Target ----> Instance ----> Nat Instance
 - ssh -A ec2-user@3.88.199.43 # Don't forget to change the IP with your instance IP.
 - ssh ubuntu@10.7.2.20 (Private IP of webserver) # Don't forget to change the IP with your instance IP.
 
-- ### Step 10: Create Launch Template and IAM role for it
+### Step 10: Create Launch Template and IAM role for it
 1.  Create 2 IAM Role:
 
 Go to IAM page.
@@ -338,21 +378,11 @@ Go to IAM page.
 ```text
 Type of Trusted Entity      : AWS Service
 Use Case                    : EC2
-Permissions                 : AmazonS3FullAccess 
-Name:                       : aws-capstone-EC2-S3-role
-```
-- second role
-- Since Lambda needs to talk S3 and DynamoDB and to run on created VPC, S3, DynamoDB full access policies and NetworkAdministrator policy must be attached it
-```text
-Type of Trusted Entity      : AWS Service
-Use Case                    : Lambda
-Permissions                 : - AmazonS3FullAccess
-                              - NetworkAdministrator
-                              - AmazonDynamoDBFullAccess                 
-Name:                       : aws-capstone-Lambda-role
+Permissions                 : AmazonS3FullAccess, AmazonSSMFullAccess
+Name:                       : dy-S3-ssm-access-role
 ```
 
-2. You should create Application Load Balancer with Auto Scaling Group of Ubuntu 18.04 EC2 Instances within created VPC.
+2. You should create Application Load Balancer with Auto Scaling Group of Ubuntu 22.04 EC2 Instances within created VPC.
 - Launch Template Name
 
 ```text
@@ -364,7 +394,7 @@ Autoscaling Guidance            : Enable
 - Amazon Machine Image (AMI)
 
 ```text
-Ubuntu, 18.04 LTS (us-east-1)
+Ubuntu, ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-20220610
 ```
 
 - Instance Type
@@ -382,7 +412,7 @@ Please select your key pair (pem key)
 - Network settings
 
 ```text
-
+subnet: don't include in launch template
 ```
 
 - Security groups
@@ -412,7 +442,7 @@ Keep it as it is
 ```
 
 - Within `Advanced details` section,
-- IAM instance profile          : aws-capstone-EC2-S3-role
+- IAM instance profile          : dy-S3-ssm-access-role
 - we will just use `user data` settings. Please paste the script below into the `user data` field.
 
 ```bash
@@ -420,15 +450,19 @@ Keep it as it is
 #!/bin/bash
 apt-get update -y
 apt-get install git -y
+apt install unzip -y
 apt-get install python3 -y
 cd /home/ubuntu/
-TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+TOKEN=$(aws --region=us-east-1 ssm get-parameter --name /balaban/capstone/token --with-decryption --query 'Parameter.Value' --output text)
 git clone https://$TOKEN@github.com/balaban1432/private-my-projects
-cd /home/ubuntu/private-my-projects/Project-503-Capstone-Project
+cd /home/ubuntu/private-my-projects/Capstone-Project
 apt install python3-pip -y
-apt-get install python3.7-dev default-libmysqlclient-dev -y
+apt-get install python3.7-dev libmysqlclient-dev -y
 pip3 install -r requirements.txt
-cd /home/ubuntu/private-my-projects/Project-503-Capstone-Project/src
+cd /home/ubuntu/private-my-projects/Capstone-Project/src
 python3 manage.py collectstatic --noinput
 python3 manage.py makemigrations
 python3 manage.py migrate
@@ -437,10 +471,12 @@ python3 manage.py runserver 0.0.0.0:80
 ```
 - Click Create Launch template
 
-- ### Step 11: Create certification for secure connection
+### Step 11: Create certification for secure connection
 - Get Certificate with AWS Certification Manager Configuration
+- mevcut sertifikayı kullan yoksa:
+- Go to the certification manager console and click `request a certificate` button. Select `Request a public certificate`, then `request a certificate` ---> `*.<YOUR DNS NAME>` ---> DNS validation ---> No tag ---> Review ---> click confirm and request button. Then it takes a while to be activated. 
 
-- ### Step 12: Create ALB and Target Group
+### Step 12: Create ALB and Target Group
 
 1. Create Target Group
 
@@ -452,8 +488,9 @@ python3 manage.py runserver 0.0.0.0:80
 
     ```text
     Choose a target type    : Instances
-    Give Target Groups Name : awscapstoneTargetGroup
+    Give Target Groups Name : aws-capstone-Target-Group
     Protocol                : HTTP
+    Protocol version        : HTTP1
     Port                    : 80
     VPC                     : aws-capstone-VPC
     ```
@@ -476,6 +513,7 @@ python3 manage.py runserver 0.0.0.0:80
     Success codes           : 200
     ```
 - Click next
+- without register any target click Next: Review 
 - Click `Create Target Group` button.
 
 2. Create Load Balancer
@@ -485,7 +523,9 @@ python3 manage.py runserver 0.0.0.0:80
 - Select the `Application Load Balancer` option.
 
 - Configure Load Balancer
-- Name            : aws-capstone-ALB
+- Name              : aws-capstone-ALB
+  Schema            : internet-facing
+  IP Address Type   : IPv4
 - Network mapping
   -- VPC: aws-capstone-VPC
   -- select - aws-capstone-az1a-public-subnet
@@ -514,7 +554,7 @@ From ACM  --- choose your certificate
     Port : 443
 - Add
 
-- ### Step 13: Create Autoscaling Group with Launch Template
+### Step 13: Create Autoscaling Group with Launch Template
 
 - EC2 AWS Management console, select Auto Scaling Group from the left-hand menu and then click Create Auto Scaling Group
 
@@ -543,14 +583,26 @@ From ACM  --- choose your certificate
 - next
 - next
 - create
-- ### Step 14: Create Cloudfront in front of ALB
-- ### Step 15: Create Route 53 with Failover settings
 
-1. - Go to CloudFront service and click "Create a CloudFront Distribution"
+<!-- WARNING!!! Sometimes your EC2 has a problem after you create autoscaling group, If you need to look inside one of your instance to make sure where the problem is, please follow these steps...
+
+```bash
+eval $(ssh-agent) (your local)
+ssh-add xxxxxxxxxx.pem   (your local )
+ssh -A ec2-user@<Public IP or DNS name of NAT instance> (your local)
+ssh ubuntu@<Private IP of web server>  (in NAT instance)
+You are in the private EC2 instance
+``` -->
+
+### Step 14: Create Cloudfront in front of ALB
+
+- Go to CloudFront service and click "Create a CloudFront Distribution"
 
 - Create Distribution :
   - Origin:
     - Origin Domain: choose ALB
+    - Origin Protocol policy can be selected as `HTTPS only`.
+    - Viewer Protocol Policy can be selected as `Redirect HTTP to HTTPS`    
   - Default Cache Behavior:
     - Viewer Protocol Policy: Select "Redirect HTTP to HTTPS" 
     - GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE methods should be allowed.
@@ -558,6 +610,21 @@ From ACM  --- choose your certificate
   - Settings
     - Alternate Domain Names (CNAME): [your-domain-name]
     - Custom SSL Certificate: Select your newly created certificate
+
+  - Cache key and origin requests
+      - Use legacy cache settings
+        Headers     : Include the following headers
+          Add Header
+          - Accept
+          - Accept-Charset
+          - Accept-Language    
+          - Accept-Datetime
+          - Accept-Encoding
+          - Authorization
+          - Host
+          - Origin
+          - Referrer
+          - Cloudfront-Forwarded-Proto 
 
 - Leave the other settings as default.
 
@@ -567,12 +634,9 @@ From ACM  --- choose your certificate
 
 - When it is deployed, copy the "Domain name" of the distribution. 
 
-2. - Healthcheck should check If Cloudfront is healthy or not.
-- - Go to left hand pane and click the Health check menu 
-
-- Click Health check button
-
-- Create Health Check
+### Step 15: Create Route 53 with Failover settings
+1. Healthcheck should check If Cloudfront is healthy or not.
+- Go to the Route53 console and select Health checks on the left hand menu. Click create health check
 
 Name: awscapstonehealthcheck
 
@@ -610,7 +674,7 @@ Get Notification   : None
 create health check
 
 
-3. Create A record for  cloudfront or ALB Domain Name - Primary record
+2. Create A record for  cloudfront or ALB Domain Name - Primary record
 
 - Click create record
 
@@ -625,7 +689,7 @@ Value/Route traffic to :  cloudfront or ALB
 Routing: "Failover"
 Failover record type    : Primary
 Health check            : awscapstonehealthcheck
-Record ID               : Failover Scenario-primary
+Record ID               : Failover-Scenario-primary
 ```
 - push the create records button
 
@@ -646,14 +710,13 @@ Value/Route traffic to :
 Routing: "Failover" 
 Failover record type    : Secondary
 Health check            : keep it as is
-Record ID               : Failover Scenario-secondary
+Record ID               : Failover-Scenario-secondary
 ```
 - push the create records button
 
-- ### Step 16: Create DynamoDB Table
-- ### Step 17-18: Create Lambda function 
-
-- Step 17-18: Create S3 Event and set it as trigger for Lambda Function
+### Step 16: Create DynamoDB Table
+### Step 17-18: Create Lambda function 
+### Step 17-18: Create S3 Event and set it as trigger for Lambda Function
 
 - DynamoDB Table
   - Create a DynamoDB table which has primary key that is `id`
@@ -665,7 +728,7 @@ Record ID               : Failover Scenario-secondary
 
 - Click `Create Table`. 
 
-- Set table name as `awscapstoneDynamo`.
+- Set table name as `aws-capstone-dynamo`.
 
 - Set Partition Key as `id` and select the type of key as `string`. No Sort Key.
 
@@ -675,6 +738,16 @@ Record ID               : Failover Scenario-secondary
 
 2. Create Lambda Function
 
+- create role
+- Since Lambda needs to talk S3 and DynamoDB and to run on created VPC, S3, DynamoDB full access policies and NetworkAdministrator policy must be attached it
+```text
+Type of Trusted Entity      : AWS Service
+Use Case                    : Lambda
+Permissions                 : - AmazonS3FullAccess
+                              - NetworkAdministrator
+                              - AmazonDynamoDBFullAccess                 
+Name:                       : dy-aws-capstone-Lambda-role
+```
 - Go to Lambda Service on AWS Console
 
 - Functions ----> Create Lambda function
@@ -682,7 +755,7 @@ Record ID               : Failover Scenario-secondary
 1. Select Author from scratch
   Name: awscapstonelambdafunction
   Runtime: Python 3.8
-  Role: aws-capstone-Lambda-role
+  Role: dy-aws-capstone-Lambda-role
 
 2. Advance Setting:
    Network                 : 
@@ -727,7 +800,7 @@ def lambda_handler(event, context):
         filename2 = filename1[-1]
         
         dynamo_db = boto3.resource('dynamodb')
-        dynamoTable = dynamo_db.Table('awscapstoneDynamo')
+        dynamoTable = dynamo_db.Table('aws-capstone-dynamo')
         
         dynamoTable.put_item(Item = {
             'id': filename2,
@@ -738,3 +811,71 @@ def lambda_handler(event, context):
     return "Lammda success"
 ```
 - Click "DEPLOY" button
+
+go to the website and add a new post with photo, then control if their record is written on DynamoDB. 
+
+### Databases contrlol
+
+<!-- WARNING!!! Sometimes your EC2 has a problem after you create autoscaling group, If you need to look inside one of your instance to make sure where the problem is, please follow these steps...
+
+```bash
+eval "$(ssh-agent)" (your local)
+ssh-add <pem-key>   (your local )
+ssh -A ec2-user@<Public IP or DNS name of NAT instance> (your local)
+ssh ubuntu@<Public IP or DNS name of private instance>  (NAT instance)
+You are in the private EC2 instance
+``` -->
+
+
+### - Connecting to RDS DB Instance
+
+
+- Connect the RDS MySQL DB instance with admin user, and paste the password when prompted.
+
+- sudo apt install mysql-client-core-5.7
+
+```bash
+mysql -h aws-capstone-rds.ctyoc2qowfbp.us-east-1.rds.amazonaws.com -u admin -pBalaban1234
+```
+
+- Show default databases in the MySQL server.
+
+```sql
+SHOW DATABASES;
+```
+
+- Choose a database 
+
+```sql
+USE database1;
+```
+
+- Show tables within the `database1` db.
+
+```sql
+SHOW TABLES;
+```
+
+- List all records within `auth_user` table.
+
+```sql
+SELECT * FROM auth_user;
+SELECT * FROM blog_post;
+```
+
+```sql
+EXIT;
+```
+
+### - Running Queries on DynamoDB 
+- Verify that data is uploaded into the tables from the AWS Management Console;
+
+  - Open the `DynamoDB` console.
+
+  - Choose tables in the navigation pane.
+
+  - Select table from the list of tables.
+
+  - Click on the `View Items` button to view the data in the table. # explore table items
+
+  - To see the detail of an item in the table, Click `Id` of it. (If you want, you can also edit the item.)

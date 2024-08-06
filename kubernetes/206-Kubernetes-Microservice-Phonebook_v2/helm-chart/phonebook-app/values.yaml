@@ -1,0 +1,10 @@
+# Default values for phonebook-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+MYSQL_ROOT_PASSWORD: "R123456b"
+MYSQL_DATABASE: "phonebook"
+MYSQL_USER: "balaban"
+MYSQL_PASSWORD: "Rb123456"
+MYSQL_DATABASE_HOST: "mysql-service"
+DNS_NAME: "balaban.com"

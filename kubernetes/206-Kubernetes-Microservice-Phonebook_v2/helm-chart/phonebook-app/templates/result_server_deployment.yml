@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resultserver-deployment
+  labels:
+    app: resultserver
+    tier: frontend
+spec:
+  selector:
+    matchLabels:
+      app: resultserver
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: resultserver
+    spec:
+      containers:
+      - name: resultserver
+        image: balaban/phonebook-resultserver
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 250m
+            memory: 500Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        envFrom:
+        - configMapRef:
+            name: server-config
+        - secretRef:
+            name: mysql-secret
+        ports:
+        - containerPort: 80

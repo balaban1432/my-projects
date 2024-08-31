@@ -1,0 +1,93 @@
+- name: configure react instance
+  hosts: _ansible_react
+  become: true
+  tasks:
+  #   - name: upgrade all packages
+  #     ansible.builtin.yum: 
+  #       name: '*'
+  #       state: latest
+ 
+  #   - name: remove Older versions of Docker if installed
+  #     ansible.builtin.yum:
+  #       name:
+  #         - docker
+  #         - docker-client
+  #         - docker-client-latest
+  #         - docker-common
+  #         - docker-latest
+  #         - docker-latest-logrotate
+  #         - docker-logrotate
+  #         - docker-engine
+  #         - podman
+  #         - runc
+  #       state: removed
+
+  #   - name: Install yum utils
+  #     ansible.builtin.yum:
+  #       name: "yum-utils"
+  #       state: latest
+
+  # # set up the repository (`yum_repository` modul can be used.)
+  #   - name: Add Docker repo
+  #     ansible.builtin.get_url:
+  #       url: https://download.docker.com/linux/rhel/docker-ce.repo
+  #       dest: /etc/yum.repos.d/docker-ce.repo
+
+  #   - name: Install Docker
+  #     ansible.builtin.package:
+  #       name: docker-ce
+  #       state: latest
+
+  #   - name: Add user ec2-user to docker group
+  #     ansible.builtin.user:
+  #       name: ec2-user
+  #       groups: docker
+  #       append: yes
+
+  #   - name: Start Docker service
+  #     ansible.builtin.service:
+  #       name: docker
+  #       state: started
+  #       enabled: yes
+
+    - name: copy files to the react node
+      ansible.builtin.copy:
+        src: /home/ec2-user/ansible/ansible-project/react/
+        dest: /home/ec2-user/react
+
+    - name: remove cw_react container
+      community.docker.docker_container:
+        name: cw_react
+        state: absent
+        force_kill: true
+
+    - name: remove clarusway/react image
+      community.docker.docker_image:
+        name: clarusway/react
+        state: absent
+  
+    - name: build container image
+      community.docker.docker_image:
+        name: clarusway/react
+        build:
+          path: /home/ec2-user/react
+        source: build
+        state: present
+      register: image_info
+
+    - name: print the image info
+      ansible.builtin.debug:
+        var: image_info        
+
+    - name: Launch react docker container
+      community.docker.docker_container:
+        name: cw_react
+        image: clarusway/react
+        state: started
+        ports: 
+        - "3000:3000"
+      register: container_info
+    
+    - name: print the container info
+      ansible.builtin.debug:
+        var: container_info

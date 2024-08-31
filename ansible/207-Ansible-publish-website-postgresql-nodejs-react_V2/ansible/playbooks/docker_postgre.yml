@@ -1,0 +1,99 @@
+---
+- name: configure postgre instance
+  hosts: _ansible_postgresql
+  become: true
+  vars_files:
+    - secret.yml
+  tasks:
+    # - name: upgrade all packages
+    #   ansible.builtin.yum:
+    #     name: '*'
+    #     state: latest
+
+    # - name: remove Older versions of Docker if installed
+    #   ansible.builtin.yum:
+    #     name:
+    #       - docker
+    #       - docker-client
+    #       - docker-client-latest
+    #       - docker-common
+    #       - docker-latest
+    #       - docker-latest-logrotate
+    #       - docker-logrotate
+    #       - docker-engine
+    #       - podman
+    #       - runc
+    #     state: removed
+
+    # - name: install yum-utils
+    #   ansible.builtin.yum:
+    #     name: "yum-utils"
+    #     state: latest
+
+    # - name: add docker repo
+    #   ansible.builtin.get_url:
+    #     url: https://download.docker.com/linux/rhel/docker-ce.repo
+    #     dest: /etc/yum.repos.d/docker-ce.repo
+
+    # - name: install docker 
+    #   ansible.builtin.package:
+    #     name: docker-ce
+    #     state: latest
+
+    # - name: add ec2-user to docker group
+    #   ansible.builtin.user:
+    #     name: ec2-user
+    #     groups: docker
+    #     append: yes
+
+    # - name: start docker service
+    #   ansible.builtin.service:
+    #     name: docker
+    #     state: started
+    #     enabled: yes
+
+    - name: copy postgre files to the node
+      ansible.builtin.copy:
+        src: /home/ec2-user/ansible/ansible-project/postgres/
+        dest: /home/ec2-user/postgresql
+
+    - name: remove cw_postgre container
+      community.docker.docker_container:
+        name: cw_postgre
+        state: absent
+        force_kill: true
+
+    - name: remove clarusway/postgre image
+      community.docker.docker_image:
+        name: clarusway/postgre
+        state: absent
+
+    - name: build container image
+      community.docker.docker_image:
+        name: clarusway/postgre
+        build:
+          path: /home/ec2-user/postgresql
+        source: build
+        state: present
+      register: image_info
+
+    - name: print the image info
+      ansible.builtin.debug:
+        var: image_info
+
+    - name: launch postgresql docker container
+      community.docker.docker_container:
+        name: cw_postgre
+        image: clarusway/postgre
+        state: started
+        ports:
+          - "5432:5432"
+        env:
+          POSTGRES_PASSWORD: "{{ password }}"
+        volumes:
+          - /db-data:/var/lib/postgresql/data
+      register: container_info
+
+    - name: print the container info
+      ansible.builtin.debug:
+        var: container_info

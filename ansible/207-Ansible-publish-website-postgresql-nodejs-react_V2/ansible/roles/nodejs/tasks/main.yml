@@ -1,0 +1,32 @@
+---
+# tasks file for nodejs
+    - name: copy files to the nodejs node
+      ansible.builtin.copy:
+        src: nodejs/
+        dest: "{{ container_path }}"
+
+    - name: update .env file
+      ansible.builtin.template:
+        src: .env.j2
+        dest: "{{ container_path }}/.env"
+
+    - name: remove {{ container_name }} container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: remove "{{ image_name }}" image
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        state: absent
+  
+    - name: build container image
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        build:
+          path: "{{ container_path }}"
+        source: build
+        state: present
+      notify: Launch nodejs docker container
+

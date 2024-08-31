@@ -1,0 +1,50 @@
+- name: install docker
+  hosts: _development
+  become: true
+  tasks:
+    - name: upgrade all packages
+      ansible.builtin.yum: 
+        name: '*'
+        state: latest
+
+    - name: remove Older versions of Docker if installed
+      ansible.builtin.yum:
+        name:
+          - docker
+          - docker-client
+          - docker-client-latest
+          - docker-common
+          - docker-latest
+          - docker-latest-logrotate
+          - docker-logrotate
+          - docker-engine
+          - podman
+          - runc
+        state: removed
+
+    - name: Install yum utils
+      ansible.builtin.yum:
+        name: "yum-utils"
+        state: latest
+
+    - name: Add Docker repo
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/rhel/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install Docker
+      ansible.builtin.package:
+        name: docker-ce
+        state: latest
+
+    - name: Add user ec2-user to docker group
+      ansible.builtin.user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    - name: Start Docker service
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes

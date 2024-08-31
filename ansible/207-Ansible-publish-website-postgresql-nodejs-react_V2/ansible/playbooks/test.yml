@@ -1,0 +1,7 @@
+- hosts: _ansible_nodejs
+  tasks:
+    - ansible.builtin.debug:
+        var: hostvars.ansible_postgresql.ans_private_ip
+
+    - ansible.builtin.debug:
+        var: hostvars.ansible_nodejs.ansible_host
